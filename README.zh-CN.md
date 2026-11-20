@@ -1,34 +1,79 @@
 # Semora
 
-**以本体为语义基础的关系型数据分析平台**
+**可自托管的自然语言问数工作台，面向关系型数据库。**
 
-[English](README.md) · 简体中文
+[English](README.md) · 简体中文 · [快速启动](#快速启动) · [界面演示](docs/DEMO.md)
 
-Semora 将自然语言业务问题转成只读 SQL 和可核查的结果。系统扫描数据库元数据、发现候选关系，并将确认后的映射组织成业务域。查询时，系统按需加载相关资料，在业务口径有歧义时向用户澄清，并在执行前校验生成的 SQL。
+把业务问题交给 Semora，它会结合业务域中的表、字段和关联理解需求，必要时请用户确认口径，再生成并执行只读 SQL。用户可以查看结果、执行的 SQL 和查询记录。
 
-[查看查询工作台演示](docs/DEMO.md)
+## 核心能力
+
+- **从表结构建立业务域。** 扫描数据库元数据，按需运行关联分析，将可用的表、字段和关系组织成业务域。
+- **先明确口径，再查询。** 根据本体和可选的 WeKnora 知识检索理解术语，在业务口径存在歧义时暂停并询问。
+- **校验并执行 SQL。** 按目标数据库方言生成 SQL，执行前校验，受限只读执行后交付结果与记录。跨源计划可在步骤间传递中间结果。
+
+## 系统架构
+
+```mermaid
+flowchart TD
+    U["业务用户"] --> W["查询工作台与管理界面"]
+    W -->|HTTP / SSE| A["API · 需求澄清与查询编排"]
+    A --> O["本体服务 · 业务域和关联"]
+    A --> E["SQL 执行器 · 元数据扫描和只读查询"]
+    A --> M["模型服务"]
+    A -.-> K["可选的 WeKnora 知识库"]
+    E --> D[("业务数据库")]
+    A --> Q["DuckDB · 查询内计算"]
+    A --> P[("PostgreSQL · 元数据与问数状态")]
+    O --> P
+    A --> R[("关联分析恢复卷")]
+```
+
+Web 使用 Vue 3、TypeScript 和 TDesign。API 使用 FastAPI 与 LangGraph 编排流程，SQLGlot 负责 SQL 校验和方言转换。Go 本体服务管理业务域，Python 执行器与 Java JDBC Worker 负责访问业务库。默认部署使用 PostgreSQL 保存查询历史和 LangGraph 检查点，关联分析的恢复文件另存于独立卷。
 
 ## 快速启动
 
-需要 Docker Engine 或 Docker Desktop，以及 Docker Compose v2。在仓库根目录执行：
+### 1. 启动服务
+
+需要 Docker Engine 或 Docker Desktop，以及 Docker Compose v2。
 
 ```sh
+git clone https://github.com/aikernix/semora-community.git
+cd semora-community
 cp .env.example .env
 docker compose -f docker-compose.yml -f deploy/compose.mvp.yml up -d --build web
 ```
 
-| 服务 | 本地地址 |
+打开 [Web 工作台](http://127.0.0.1:5173)，在「系统设置」配置兼容 OpenAI 接口的模型。Compose 会自动执行数据库迁移。[API 文档](http://127.0.0.1:8000/docs) · [健康检查](http://127.0.0.1:8000/healthz)
+
+### 2. 导入并绑定示例数据
+
+以下命令把合成订单写入本地 PostgreSQL 的独立 Schema。
+
+```sh
+docker compose -f docker-compose.yml -f deploy/compose.mvp.yml exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U semora -d semora_business < examples/sales_demo.sql
+```
+
+在「数据源」添加 PostgreSQL。以下账号仅用于默认本地 Compose 环境。
+
+| 字段 | 示例值 |
 | --- | --- |
-| Web 控制台 | <http://127.0.0.1:5173> |
-| API 文档 | <http://127.0.0.1:8000/docs> |
-| API 健康检查 | <http://127.0.0.1:8000/healthz> |
+| 名称 | Sales Demo |
+| 数据库地址和端口 | `postgres:5432` |
+| 数据库名 | `semora_business` |
+| 用户名和密码 | 均为 `semora_reader` |
+| Schema（高级连接配置） | `semora_sales_demo` |
 
-1. 在 **系统设置** 中配置兼容 OpenAI 接口的模型。
-2. 添加数据库连接，等待首次表结构扫描完成，再手动启动关联分析。
-3. 创建业务域并绑定已建模的数据源。可按需接入 WeKnora 并绑定知识库。
-4. 打开查询工作台，选择业务域并提交业务问题。
+测试连接后创建数据源。表结构扫描完成后，点击「重新分析关联关系」。随后在本体工作室创建业务域「销售分析」，标识填写 `sales_demo`，绑定 **Sales Demo**。
 
-默认运行 Web、API、Ontology Core、SQL Executor 和 PostgreSQL。Compose 将数据库迁移作为一次性任务执行。Windows 用户也可以使用 [`scripts/start-mvp.ps1`](scripts/start-mvp.ps1)。
+### 3. 提交问题
+
+在查询工作台选择「销售分析」，新建查询，名称填写「十月渠道成交额」，需求填写：
+
+> 按渠道汇总 2026 年 10 月已完成订单的成交金额（元）和订单数，按成交金额降序排列。
+
+预期结果为 **Online 218.00 元／2 单、Retail 149.00 元／1 单、Partner 75.00 元／1 单**。取消订单和 11 月订单不会计入。页面展示结果，可打开「执行记录」查看 SQL。
 
 ## 工作流程
 
@@ -55,39 +100,6 @@ flowchart LR
     D --> E["只读执行"]
     E --> F["返回结果和执行记录"]
 ```
-
-## 系统架构
-
-```mermaid
-flowchart LR
-    U["浏览器"] -->|HTTP / SSE| A["Semora API"]
-    A --> M["模型服务"]
-    A -.-> K["可选的 WeKnora 知识库"]
-    A --> O["本体服务"]
-    A --> E["SQL 执行器"]
-    E --> D[("业务数据库")]
-    A --> Q["DuckDB 中间计算"]
-    A --> P[("PostgreSQL")]
-    O --> P
-    A --> R[("关联分析恢复卷")]
-```
-
-| 组件 | 技术栈与职责 |
-| --- | --- |
-| Web 控制台 | Vue 3、TypeScript、TDesign，提供查询工作台及数据源、业务域和系统设置界面。 |
-| API 与查询运行时 | FastAPI、LangGraph、SQLGlot，负责编排澄清与查询计划、校验 SQL、转换方言并流式返回进度。 |
-| 本体服务 | Go、PostgreSQL，管理业务域、表与字段映射、关联关系和生效配置。 |
-| SQL 执行器 | Python 客户端和 Java JDBC Worker，负责数据库元数据读取、能力验证和受限只读执行。 |
-| 中间计算 | DuckDB，在单次查询内处理跨源关联、聚合等中间结果。 |
-| 元数据与查询历史 | PostgreSQL 存储数据源元数据、业务域、本体快照、查询会话和运行记录。 |
-| 问数流程状态 | 配置 `LANGGRAPH_DATABASE_URL` 时，使用 LangGraph 的 PostgreSQL 检查点恢复流程，例如在用户确认口径后继续。未配置时使用进程内存。 |
-| 关联分析状态 | PostgreSQL 保存分析任务和分阶段工作记录。独立的 `relationship-checkpoints` 卷保存恢复文件。 |
-
-## 查询执行与边界
-
-- **上下文与范围。** 当前业务域决定查询可用的数据源、对象与关系。知识库可补充业务定义，口径有歧义时工作台会向用户澄清。
-- **校验与执行。** 查询计划区分数据源步骤和本地计算步骤。API 检查 SQL 结构和表引用，转换为目标方言，在目标库支持时使用 `EXPLAIN` 预检。执行器按对应适配器的只读策略执行。
-- **限制与记录。** 管理员可分别配置单条 SQL 超时、预检超时、返回行数和数据量。默认值为 30 秒、30 秒、1,000 行和 10 MiB。查询结果附带 SQL 和执行记录。
 
 ## 数据库接入
 

@@ -1,34 +1,79 @@
 # Semora
 
-**Ontology-grounded analytics for relational data.**
+**A self-hosted natural-language analytics workbench for relational data.**
 
-English · [简体中文](README.zh-CN.md)
+English · [简体中文](README.zh-CN.md) · [Quickstart](#quickstart) · [Demo](docs/DEMO.md)
 
-Semora turns business questions into read-only SQL and verifiable results. It scans database metadata, discovers candidate relationships, and organizes approved mappings into business domains. At query time, it loads relevant context, asks for clarification when the business meaning is ambiguous, and validates generated SQL before execution.
+Ask Semora a business question. It uses the tables, fields, and relationships in a business domain to interpret the request, asks for clarification when needed, and runs read-only SQL. The workbench shows the results, the SQL, and an execution record.
 
-[View the Query Workbench demo](docs/DEMO.md)
+## Features
 
-## Quick start
+- **Build a business domain from database schema.** Scan metadata, run relationship analysis on demand, and organize the available tables, fields, and relationships into business domains.
+- **Clarify before querying.** Interpret business terms using the ontology and optional WeKnora retrieval, and ask users to resolve ambiguity.
+- **Validate and execute SQL.** Compile SQL for the target dialect, validate it before read-only execution, and return results with an execution record. Multi-source plans can pass intermediate results between steps.
 
-Requires Docker Engine or Docker Desktop with Docker Compose v2. Run these commands from the repository root.
+## System architecture
+
+```mermaid
+flowchart TD
+    U["Business users"] --> W["Query Workbench and admin console"]
+    W -->|HTTP / SSE| A["API · Clarification and query orchestration"]
+    A --> O["Ontology Core · Business domains and relationships"]
+    A --> E["SQL Executor · Metadata scanning and read-only queries"]
+    A --> M["Model provider"]
+    A -.-> K["Optional WeKnora knowledge base"]
+    E --> D[("Business databases")]
+    A --> Q["DuckDB · In-query compute"]
+    A --> P[("PostgreSQL · Metadata and query state")]
+    O --> P
+    A --> R[("Relationship analysis recovery volume")]
+```
+
+The web console uses Vue 3, TypeScript, and TDesign. FastAPI and LangGraph orchestrate queries, with SQLGlot for validation and dialect conversion. The Go ontology service manages business domains, and a Python executor with a Java JDBC worker accesses databases. The default stack uses PostgreSQL for query history and LangGraph checkpoints. Relationship analysis recovery files have their own volume.
+
+## Quickstart
+
+### 1. Start Semora
+
+Requires Docker Engine or Docker Desktop with Docker Compose v2.
 
 ```sh
+git clone https://github.com/aikernix/semora-community.git
+cd semora-community
 cp .env.example .env
 docker compose -f docker-compose.yml -f deploy/compose.mvp.yml up -d --build web
 ```
 
-| Service | Local address |
+Open the [workbench](http://127.0.0.1:5173) and configure an OpenAI-compatible model under **System Settings** (系统设置). Compose runs the database migrations automatically. [API docs](http://127.0.0.1:8000/docs) · [Health check](http://127.0.0.1:8000/healthz)
+
+### 2. Load and bind the demo data
+
+Load synthetic orders into a separate schema in the local PostgreSQL container.
+
+```sh
+docker compose -f docker-compose.yml -f deploy/compose.mvp.yml exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U semora -d semora_business < examples/sales_demo.sql
+```
+
+Add a PostgreSQL data source. These credentials are for the default local Compose stack.
+
+| Field | Value |
 | --- | --- |
-| Web console | <http://127.0.0.1:5173> |
-| API documentation | <http://127.0.0.1:8000/docs> |
-| API health | <http://127.0.0.1:8000/healthz> |
+| Name | Sales Demo |
+| Host and port | `postgres:5432` |
+| Database | `semora_business` |
+| Username and password | Both `semora_reader` |
+| Schema under advanced settings | `semora_sales_demo` |
 
-1. Configure an OpenAI-compatible model in **System Settings**.
-2. Add a database connection and let the initial table scan finish. Start relationship analysis explicitly.
-3. Create a business domain and bind the modeled source. Optionally connect WeKnora and bind a knowledge base.
-4. Open the query workbench, select the domain, and submit a business question.
+Test the connection, create the source, and wait for schema scanning to finish. Click **Reanalyze Relationships** (重新分析关联关系). In **Ontology Studio** (本体工作室), create a business domain named **Sales Analytics** with ID `sales_demo` and bind **Sales Demo**.
 
-The default stack runs Web, API, Ontology Core, SQL Executor, and PostgreSQL. Compose runs database migrations as one-off jobs. On Windows, you can also use [`scripts/start-mvp.ps1`](scripts/start-mvp.ps1).
+### 3. Ask a question
+
+Select **Sales Analytics** in the query workbench. Start a new query, name it **October sales by channel**, and enter:
+
+> For completed orders in October 2026, show total paid amount in CNY and order count by sales channel, sorted by paid amount descending.
+
+Expected results are **Online: 218.00 CNY, 2 orders**, **Retail: 149.00 CNY, 1 order**, and **Partner: 75.00 CNY, 1 order**. The cancelled order and the November order are excluded. Open **Execution Record** to inspect the SQL.
 
 ## Workflows
 
@@ -55,39 +100,6 @@ flowchart LR
     D --> E["Execute read-only"]
     E --> F["Return results and execution records"]
 ```
-
-## System architecture
-
-```mermaid
-flowchart LR
-    U["Browser"] -->|HTTP / SSE| A["Semora API"]
-    A --> M["Model provider"]
-    A -.-> K["Optional WeKnora knowledge base"]
-    A --> O["Ontology Core"]
-    A --> E["SQL Executor"]
-    E --> D[("Business databases")]
-    A --> Q["DuckDB intermediate compute"]
-    A --> P[("PostgreSQL")]
-    O --> P
-    A --> R[("Relationship analysis recovery volume")]
-```
-
-| Component | Stack and responsibility |
-| --- | --- |
-| Web console | Vue 3, TypeScript, and TDesign. Provides the query workbench and manages data sources, business domains, and system settings. |
-| API and query runtime | FastAPI, LangGraph, and SQLGlot. Orchestrates clarification, query planning, SQL validation and dialect conversion, and streams progress to the browser. |
-| Ontology Core | Go and PostgreSQL. Manages business domains, table and field mappings, relationships, and published configurations. |
-| SQL Executor | Python clients and a Java JDBC worker. Reads database metadata, validates capabilities, and runs read-only queries under execution limits. |
-| Intermediate compute | DuckDB. Processes intermediate results within a query, including multi-source joins and aggregation. |
-| Metadata and query history | PostgreSQL stores data-source metadata, business domains, ontology snapshots, sessions, and query runs. |
-| Query workflow state | LangGraph uses PostgreSQL checkpoints when `LANGGRAPH_DATABASE_URL` is configured, including for resuming after user clarification. It uses in-memory checkpoints otherwise. |
-| Relationship analysis state | PostgreSQL stores analysis jobs and stage work records. A separate `relationship-checkpoints` volume holds recovery files. |
-
-## Query execution and controls
-
-- **Context and scope.** The selected business domain determines the data sources, objects, and relationships available to the query. An optional knowledge base can supply business definitions. If a question is ambiguous, the workbench asks the user to clarify.
-- **Validation and execution.** Query plans specify source and local computation steps. The API checks SQL structure and table references, compiles queries for the target dialect, and uses `EXPLAIN` when supported. The executor applies the target connector's read-only controls.
-- **Limits and observability.** Administrators can set per-statement and preflight timeouts separately from result limits. Defaults are 30 seconds per SQL statement, 30 seconds per preflight, 1,000 rows, and 10 MiB. Results are accompanied by SQL and an execution record.
 
 ## Database connectivity
 
