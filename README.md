@@ -67,8 +67,9 @@ flowchart LR
     A --> E["SQL Executor"]
     E --> D[("Business databases")]
     A --> Q["DuckDB intermediate compute"]
-    A --> P[("PostgreSQL metadata and checkpoints")]
+    A --> P[("PostgreSQL")]
     O --> P
+    A --> R[("Relationship analysis recovery volume")]
 ```
 
 | Component | Stack and responsibility |
@@ -78,7 +79,9 @@ flowchart LR
 | Ontology Core | Go and PostgreSQL. Manages business domains, table and field mappings, relationships, and published configurations. |
 | SQL Executor | Python clients and a Java JDBC worker. Reads database metadata, validates capabilities, and runs read-only queries under execution limits. |
 | Intermediate compute | DuckDB. Processes intermediate results within a query, including multi-source joins and aggregation. |
-| Application state | PostgreSQL. Stores metadata, query records, and workflow checkpoints. |
+| Metadata and query history | PostgreSQL stores data-source metadata, business domains, ontology snapshots, sessions, and query runs. |
+| Query workflow state | LangGraph uses PostgreSQL checkpoints when `LANGGRAPH_DATABASE_URL` is configured, including for resuming after user clarification. It uses in-memory checkpoints otherwise. |
+| Relationship analysis state | PostgreSQL stores analysis jobs and stage work records. A separate `relationship-checkpoints` volume holds recovery files. |
 
 ## Query execution and controls
 

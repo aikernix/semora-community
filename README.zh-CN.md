@@ -67,8 +67,9 @@ flowchart LR
     A --> E["SQL 执行器"]
     E --> D[("业务数据库")]
     A --> Q["DuckDB 中间计算"]
-    A --> P[("PostgreSQL 元数据与检查点")]
+    A --> P[("PostgreSQL")]
     O --> P
+    A --> R[("关联分析恢复卷")]
 ```
 
 | 组件 | 技术栈与职责 |
@@ -78,7 +79,9 @@ flowchart LR
 | 本体服务 | Go、PostgreSQL，管理业务域、表与字段映射、关联关系和生效配置。 |
 | SQL 执行器 | Python 客户端和 Java JDBC Worker，负责数据库元数据读取、能力验证和受限只读执行。 |
 | 中间计算 | DuckDB，在单次查询内处理跨源关联、聚合等中间结果。 |
-| 应用状态 | PostgreSQL，存储元数据、查询记录与流程检查点。 |
+| 元数据与查询历史 | PostgreSQL 存储数据源元数据、业务域、本体快照、查询会话和运行记录。 |
+| 问数流程状态 | 配置 `LANGGRAPH_DATABASE_URL` 时，使用 LangGraph 的 PostgreSQL 检查点恢复流程，例如在用户确认口径后继续。未配置时使用进程内存。 |
+| 关联分析状态 | PostgreSQL 保存分析任务和分阶段工作记录。独立的 `relationship-checkpoints` 卷保存恢复文件。 |
 
 ## 查询执行与边界
 
