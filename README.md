@@ -6,13 +6,7 @@ English · [简体中文](README.zh-CN.md)
 
 Semora turns business questions into read-only SQL and verifiable results. It scans database metadata, discovers candidate relationships, and organizes approved mappings into business domains. At query time, it loads relevant context, asks for clarification when the business meaning is ambiguous, and validates generated SQL before execution.
 
-## Screenshots
-
-The screenshots use synthetic data.
-
-![Query Workbench](docs/images/workbench-demo.png)
-
-![Ontology Studio](docs/images/ontology-demo.png)
+[View the Query Workbench demo](docs/DEMO.md)
 
 ## Quick start
 
@@ -62,21 +56,72 @@ flowchart LR
     E --> F["Return results and execution records"]
 ```
 
-## Architecture and stack
+## System architecture
 
-| Component | Stack and role |
+```mermaid
+flowchart LR
+    U["Browser"] -->|HTTP / SSE| A["Semora API"]
+    A --> M["Model provider"]
+    A -.-> K["Optional WeKnora knowledge base"]
+    A --> O["Ontology Core"]
+    A --> E["SQL Executor"]
+    E --> D[("Business databases")]
+    A --> Q["DuckDB intermediate compute"]
+    A --> P[("PostgreSQL metadata and checkpoints")]
+    O --> P
+```
+
+| Component | Stack and responsibility |
 | --- | --- |
-| Web | Vue 3, TypeScript, and TDesign for the query workbench and administration |
-| API | FastAPI and LangGraph for query orchestration and streaming |
-| Ontology | Go and PostgreSQL for business domains and data-source relationships |
-| SQL execution | Python, SQLGlot, and a Java JDBC worker for dialect conversion and read-only execution |
-| Local query compute | DuckDB for processing intermediate results |
+| Web console | Vue 3, TypeScript, and TDesign. Provides the query workbench and manages data sources, business domains, and system settings. |
+| API and query runtime | FastAPI, LangGraph, and SQLGlot. Orchestrates clarification, query planning, SQL validation and dialect conversion, and streams progress to the browser. |
+| Ontology Core | Go and PostgreSQL. Manages business domains, table and field mappings, relationships, and published configurations. |
+| SQL Executor | Python clients and a Java JDBC worker. Reads database metadata, validates capabilities, and runs read-only queries under execution limits. |
+| Intermediate compute | DuckDB. Processes intermediate results within a query, including multi-source joins and aggregation. |
+| Application state | PostgreSQL. Stores metadata, query records, and workflow checkpoints. |
 
-Model providers and the optional WeKnora knowledge service are external integrations.
+## Query execution and controls
+
+- **Context and scope.** The selected business domain determines the data sources, objects, and relationships available to the query. An optional knowledge base can supply business definitions. If a question is ambiguous, the workbench asks the user to clarify.
+- **Validation and execution.** Query plans specify source and local computation steps. The API checks SQL structure and table references, compiles queries for the target dialect, and uses `EXPLAIN` when supported. The executor applies the target connector's read-only controls.
+- **Limits and observability.** Administrators can set per-statement and preflight timeouts separately from result limits. Defaults are 30 seconds per SQL statement, 30 seconds per preflight, 1,000 rows, and 10 MiB. Results are accompanied by SQL and an execution record.
 
 ## Database connectivity
 
-Semora connects to data sources over native PostgreSQL and MySQL protocols and through JDBC. Query capabilities depend on driver configuration and validation against the target database.
+| Connection path | Included connectors |
+| --- | --- |
+| Native PostgreSQL protocol | PostgreSQL |
+| Native MySQL protocol | MySQL, GoldenDB |
+| Bundled JDBC drivers | Oracle, SQL Server, OceanBase, Vastbase |
+| Custom JDBC | Administrator-supplied drivers |
+
+Driver availability and validated query support vary by target database. SQL Server is bundled in the executor and is currently hidden in the create-source dialog. For custom JDBC, query execution requires a supported dialect and a verified read-only strategy.
+
+## Source layout
+
+| Path | What to find there |
+| --- | --- |
+| [`apps/web`](apps/web) | Web interface and browser tests |
+| [`services/api`](services/api) | API, query workflow, metadata modeling, and SQL compilation |
+| [`services/agent`](services/agent) | Agent runtime and model integration |
+| [`services/ontology`](services/ontology) | Ontology service |
+| [`services/executor`](services/executor) | Native adapters and JDBC worker |
+| [`packages/contracts`](packages/contracts) | Shared request, workflow, and SQL plan models |
+| [`deploy`](deploy) | Compose overlays and database migrations |
+
+## Development checks
+
+```sh
+python -m pip install -r services/api/requirements.txt -r services/executor/requirements.txt pytest
+python -m pytest services/api/tests
+
+cd apps/web
+npm ci
+npm run build
+npm run test:e2e
+```
+
+Browser tests use the local console by default. Set `SEMORA_WEB_URL` to select a running test instance.
 
 ## License
 
