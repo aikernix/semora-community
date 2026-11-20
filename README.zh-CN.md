@@ -24,14 +24,14 @@ flowchart TD
     A --> E["SQL 执行器 · 元数据扫描和只读查询"]
     A --> M["模型服务"]
     A -.-> K["可选的 WeKnora 知识库"]
-    E --> D[("业务数据库")]
+    E --> D[("业务数据源 · 原生协议和 JDBC")]
     A --> Q["DuckDB · 查询内计算"]
-    A --> P[("PostgreSQL · 元数据与问数状态")]
+    A --> P[("平台状态 · 元数据和查询历史")]
     O --> P
     A --> R[("关联分析恢复卷")]
 ```
 
-Web 使用 Vue 3、TypeScript 和 TDesign。API 使用 FastAPI 与 LangGraph 编排流程，SQLGlot 负责 SQL 校验和方言转换。Go 本体服务管理业务域，Python 执行器与 Java JDBC Worker 负责访问业务库。默认部署使用 PostgreSQL 保存查询历史和 LangGraph 检查点，关联分析的恢复文件另存于独立卷。
+Web 使用 Vue 3、TypeScript 和 TDesign。API 使用 FastAPI 与 LangGraph 编排流程，SQLGlot 负责 SQL 校验和方言转换。Go 本体服务管理业务域，Python 执行器与 Java JDBC Worker 负责访问业务库。平台状态存储保存元数据、查询历史和流程检查点，关联分析的恢复文件另存于独立卷。
 
 ## 快速启动
 

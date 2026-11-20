@@ -24,14 +24,14 @@ flowchart TD
     A --> E["SQL Executor · Metadata scanning and read-only queries"]
     A --> M["Model provider"]
     A -.-> K["Optional WeKnora knowledge base"]
-    E --> D[("Business databases")]
+    E --> D[("Business data sources · Native protocols and JDBC")]
     A --> Q["DuckDB · In-query compute"]
-    A --> P[("PostgreSQL · Metadata and query state")]
+    A --> P[("Platform state · Metadata and query history")]
     O --> P
     A --> R[("Relationship analysis recovery volume")]
 ```
 
-The web console uses Vue 3, TypeScript, and TDesign. FastAPI and LangGraph orchestrate queries, with SQLGlot for validation and dialect conversion. The Go ontology service manages business domains, and a Python executor with a Java JDBC worker accesses databases. The default stack uses PostgreSQL for query history and LangGraph checkpoints. Relationship analysis recovery files have their own volume.
+The web console uses Vue 3, TypeScript, and TDesign. FastAPI and LangGraph orchestrate queries, with SQLGlot for validation and dialect conversion. The Go ontology service manages business domains, and a Python executor with a Java JDBC worker accesses databases. Platform state stores metadata, query history, and workflow checkpoints. Relationship analysis recovery files have their own volume.
 
 ## Quickstart
 
