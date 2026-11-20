@@ -8,9 +8,11 @@ Ask Semora a business question. It uses the tables, fields, and relationships in
 
 ## Features
 
-- **Build a business domain from database schema.** Scan metadata, run relationship analysis on demand, and organize the available tables, fields, and relationships into business domains.
-- **Clarify before querying.** Interpret business terms using the ontology and optional WeKnora retrieval, and ask users to resolve ambiguity.
-- **Validate and execute SQL.** Compile SQL for the target dialect, validate it before read-only execution, and return results with an execution record. Multi-source plans can pass intermediate results between steps.
+- **Turn database schema into a business model.** Scan tables, columns, keys, and comments, then run relationship analysis on demand. Review proposed joins, including composite keys, cardinality, and join conditions, before using them in reusable business domains.
+- **Resolve business ambiguity before it becomes a SQL error.** Interpret requests against the domain model and, when connected, WeKnora business knowledge. If choices such as date range, grouping, or metric definition would change the answer, Semora asks the user to clarify and continues with the confirmed scope.
+- **Validate SQL before hitting the database.** Check table references and SQL structure against the selected domain, compile for the target dialect, and run an `EXPLAIN` preflight where supported. Read-only execution is bounded by configurable timeouts and result limits.
+- **Query across data sources in a single request.** Execute steps against their respective sources, pass intermediate keys between steps, and use DuckDB to join or aggregate the intermediate results within the query.
+- **Trace the answer back to the query.** Inspect the interpreted requirements, returned rows, SQL, and execution record in the workbench. See which step failed when a query cannot finish.
 
 ## System architecture
 
