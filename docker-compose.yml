@@ -1,0 +1,217 @@
+name: semora
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: semora
+      POSTGRES_PASSWORD: semora
+      POSTGRES_DB: semora_business
+    ports:
+      - "${SEMORA_POSTGRES_PORT:-15433}:5432"
+    volumes:
+      - semora-postgres:/var/lib/postgresql/data
+      - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semora -d semora_business"]
+      interval: 10s
+      timeout: 30s
+      retries: 30
+      start_period: 30s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: services/migrator/Dockerfile
+    environment:
+      METADATA_DATABASE_URL: postgresql://semora:semora@postgres:5432/semora_business
+      METADATA_API_ROLE: semora_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  executor:
+    volumes:
+      - executor-config:/data/config
+    build:
+      context: .
+      dockerfile: services/executor/Dockerfile
+    environment:
+      BUSINESS_DATABASE_URL: postgresql://semora_reader:semora_reader@postgres:5432/semora_business
+      DATASOURCE_RETAIL_CREDIT_PG_URL: postgresql://semora_reader:semora_reader@postgres:5432/semora_business
+      DATASOURCE_BANK_MYSQL_URL: ${DATASOURCE_BANK_MYSQL_URL:-}
+      SCAN_TIMEOUT_MS: "${SCAN_TIMEOUT_MS:-60000}"
+      QUERY_TIMEOUT_MS: "${QUERY_TIMEOUT_MS:-30000}"
+      RELATIONSHIP_PROFILE_TIMEOUT_MS: "${RELATIONSHIP_PROFILE_TIMEOUT_MS:-30000}"
+      MAX_RESULT_ROWS: "${MAX_RESULT_ROWS:-1000}"
+      MAX_RESULT_BYTES: "${MAX_RESULT_BYTES:-10485760}"
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-semora-dev-internal}
+      REQUIRE_INTERNAL_TOKEN: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""
+      SEMORA_ENVIRONMENT: demo
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8002/healthz', timeout=10)",
+        ]
+      interval: 10s
+      timeout: 30s
+      retries: 30
+      start_period: 30s
+    ports:
+      - "8002:8002"
+
+  langgraph-migrate:
+    image: semora-api:dev
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    command: ["python", "-m", "app.migrate_langgraph"]
+    environment:
+      LANGGRAPH_DATABASE_URL: postgresql://semora:semora@postgres:5432/semora_business?options=-csearch_path%3Dsemora_meta
+      METADATA_API_ROLE: semora_api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  ontology-migrate:
+    image: semora-ontology:dev
+    build:
+      context: .
+      dockerfile: services/ontology/Dockerfile
+    command: ["migrate"]
+    environment:
+      ONTOLOGY_DATABASE_URL: postgresql://semora:semora@postgres:5432/semora_business
+      SEMORA_DEMO_SEED: ${SEMORA_DEMO_SEED:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  ontology:
+    image: semora-ontology:dev
+    build:
+      context: .
+      dockerfile: services/ontology/Dockerfile
+    environment:
+      ONTOLOGY_DATABASE_URL: postgresql://semora:semora@postgres:5432/semora_business
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-semora-dev-internal}
+      REQUIRE_INTERNAL_TOKEN: "true"
+    depends_on:
+      ontology-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/ontology", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+
+  api:
+    image: semora-api:dev
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    volumes:
+      - relationship-checkpoints:/var/lib/semora/relationship-checkpoints
+    environment:
+      RELATIONSHIP_RESPONSE_FORMAT: "${RELATIONSHIP_RESPONSE_FORMAT:-json_object}"
+      RELATIONSHIP_THINKING_MODE: "${RELATIONSHIP_THINKING_MODE:-inherit}"
+      RELATIONSHIP_NO_DELIVERY_SECONDS: "${RELATIONSHIP_NO_DELIVERY_SECONDS:-300}"
+      RELATIONSHIP_MODEL_CONCURRENCY: "${RELATIONSHIP_MODEL_CONCURRENCY:-3}"
+      RELATIONSHIP_AGENT_GROUP_THRESHOLD: "${RELATIONSHIP_AGENT_GROUP_THRESHOLD:-40}"
+      RELATIONSHIP_COMPARISON_TASK_THRESHOLD: "${RELATIONSHIP_COMPARISON_TASK_THRESHOLD:-30}"
+      RELATIONSHIP_AGENT_MAX_STEPS: "${RELATIONSHIP_AGENT_MAX_STEPS:-8}"
+      RELATIONSHIP_CHECKPOINT_DIR: /var/lib/semora/relationship-checkpoints
+      EXECUTOR_URL: http://executor:8002
+      METADATA_DATABASE_URL: postgresql://semora_api:semora_api@postgres:5432/semora_business
+      LANGGRAPH_DATABASE_URL: postgresql://semora_api:semora_api@postgres:5432/semora_business?options=-csearch_path%3Dsemora_meta
+      WEKNORA_BASE_URL: ${SEMORA_WEKNORA_BASE_URL:-}
+      WEKNORA_API_KEY: ${SEMORA_WEKNORA_API_KEY:-}
+      WEKNORA_AGENT_ID: ${WEKNORA_AGENT_ID:-builtin-wiki-researcher}
+      WEKNORA_AGENT_TIMEOUT_SECONDS: ${WEKNORA_AGENT_TIMEOUT_SECONDS:-180}
+      ONTOLOGY_URL: http://ontology:8081
+      KNOWLEDGE_UPLOAD_MAX_BYTES: ${KNOWLEDGE_UPLOAD_MAX_BYTES:-26214400}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-semora-web}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+      CORS_ORIGINS: http://localhost:5173
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-semora-dev-internal}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      LLM_MODE: ${LLM_MODE:-optional}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-300}
+      LLM_REQUEST_RETRIES: ${LLM_REQUEST_RETRIES:-1}
+      LLM_STREAM_ENABLED: ${LLM_STREAM_ENABLED:-true}
+      LLM_STREAM_INCLUDE_USAGE: ${LLM_STREAM_INCLUDE_USAGE:-true}
+      LLM_ENABLE_THINKING: ${LLM_ENABLE_THINKING:-false}
+      LLM_NO_DELIVERY_SECONDS: ${LLM_NO_DELIVERY_SECONDS:-60}
+      AGENT_MAX_NO_PROGRESS: ${AGENT_MAX_NO_PROGRESS:-3}
+      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-900}
+      AGENT_CONTEXT_MAX_BYTES: ${AGENT_CONTEXT_MAX_BYTES:-256000}
+      AGENT_ANALYST_CONTEXT_MAX_BYTES: ${AGENT_ANALYST_CONTEXT_MAX_BYTES:-131072}
+      SEMORA_DEMO_SEED: ${SEMORA_DEMO_SEED:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""
+      SEMORA_ENVIRONMENT: demo
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      langgraph-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      executor:
+        condition: service_healthy
+      ontology:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=10)",
+        ]
+      interval: 10s
+      timeout: 30s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8088}
+        VITE_KEYCLOAK_REALM: semora
+        VITE_KEYCLOAK_CLIENT_ID: semora-web
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "5173:8080"
+
+volumes:
+  relationship-checkpoints:
+  executor-config:
+  semora-postgres:
+

@@ -1,0 +1,15 @@
+fastapi==0.162.0
+starlette==1.10.0
+uvicorn[standard]==0.54.0
+pydantic==2.11.4
+psycopg[binary]==3.2.9
+PyMySQL[rsa]==1.1.2
+cryptography==50.0.2
+sqlglot==26.16.4
+opentelemetry-sdk==1.45.2
+opentelemetry-exporter-otlp-proto-http==1.45.2
+opentelemetry-instrumentation-fastapi==0.66b2
+opentelemetry-instrumentation-psycopg==0.66b2
+
+
+python-multipart==0.0.33

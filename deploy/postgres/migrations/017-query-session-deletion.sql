@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE semora_meta.sessions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+COMMIT;

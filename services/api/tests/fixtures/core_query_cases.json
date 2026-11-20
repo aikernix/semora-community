@@ -1,0 +1,125 @@
+{
+  "version": "core-fixture-v1",
+  "schema": "CREATE TABLE records(id INTEGER PRIMARY KEY, amount NUMERIC); INSERT INTO records VALUES(1,NULL),(2,10),(3,20);",
+  "cases": [
+    {
+      "id": "single_filter",
+      "question": "查询amount大于10的记录编号",
+      "plan": {
+        "fields": [
+          "record.id"
+        ],
+        "filters": [
+          {
+            "field": "record.amount",
+            "operator": "gt",
+            "value": 10
+          }
+        ]
+      },
+      "expected": [
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "id": "top_n",
+      "question": "按amount降序取一条记录",
+      "plan": {
+        "fields": [
+          "record.id",
+          "record.amount"
+        ],
+        "filters": [
+          {
+            "field": "record.amount",
+            "operator": "is_not_null"
+          }
+        ],
+        "order_by": [
+          {
+            "field": "record.amount",
+            "direction": "desc"
+          },
+          {
+            "field": "record.id",
+            "direction": "asc"
+          }
+        ],
+        "limit": 1
+      },
+      "expected": [
+        [
+          3,
+          20
+        ]
+      ]
+    },
+    {
+      "id": "null",
+      "question": "查询amount为空的记录编号",
+      "plan": {
+        "fields": [
+          "record.id"
+        ],
+        "filters": [
+          {
+            "field": "record.amount",
+            "operator": "is_null"
+          }
+        ]
+      },
+      "expected": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "id": "aggregate",
+      "question": "统计记录总数",
+      "plan": {
+        "metrics": [
+          "n"
+        ],
+        "calculations": [
+          {
+            "name": "n",
+            "function": "count"
+          }
+        ]
+      },
+      "expected": [
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "id": "user_correction",
+      "question": "不要统计编号3，只查amount不为空的记录",
+      "plan": {
+        "fields": [
+          "record.id"
+        ],
+        "filters": [
+          {
+            "field": "record.amount",
+            "operator": "is_not_null"
+          },
+          {
+            "field": "record.id",
+            "operator": "ne",
+            "value": 3
+          }
+        ]
+      },
+      "expected": [
+        [
+          2
+        ]
+      ]
+    }
+  ]
+}

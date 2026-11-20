@@ -1,0 +1,8 @@
+FROM postgres:16-alpine
+COPY deploy/postgres/migrations /migrations
+COPY deploy/compiled/migrate_release.sh /usr/local/bin/semra-migrate
+RUN sed -i 's/\r$//' /usr/local/bin/semra-migrate \
+    && chmod 0555 /usr/local/bin/semra-migrate \
+    && chmod 0444 /migrations/*.sql
+USER 70:70
+ENTRYPOINT ["/usr/local/bin/semra-migrate"]

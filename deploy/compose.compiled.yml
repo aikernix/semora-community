@@ -1,0 +1,31 @@
+# Opt-in compiled delivery build. Development Compose stays unchanged.
+# docker compose -f docker-compose.yml -f deploy/compose.compiled.yml build
+services:
+  migrate:
+    image: semora-migrate:compiled-v1
+    build:
+      context: .
+      dockerfile: deploy/compiled/Dockerfile.migrator
+  api:
+    image: semora-api:compiled-v1
+    build:
+      context: .
+      dockerfile: deploy/compiled/Dockerfile.python
+      args:
+        SERVICE: api
+  langgraph-migrate:
+    image: semora-api:compiled-v1
+    build:
+      context: .
+      dockerfile: deploy/compiled/Dockerfile.python
+      args:
+        SERVICE: api
+    # CPython cannot run a native extension with `python -m`.
+    command: ["python", "-c", "import asyncio; from app.migrate_langgraph import migrate; asyncio.run(migrate())"]
+  executor:
+    image: semora-executor:compiled-v1
+    build:
+      context: .
+      dockerfile: deploy/compiled/Dockerfile.python
+      args:
+        SERVICE: executor

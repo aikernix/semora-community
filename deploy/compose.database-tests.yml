@@ -1,0 +1,37 @@
+name: semora-db-tests
+services:
+  pg15:
+    image: postgres:15-alpine
+    environment: &pg
+      POSTGRES_USER: fixture_owner
+      POSTGRES_PASSWORD: fixture_owner_only
+      POSTGRES_DB: fixture
+    ports: ["127.0.0.1:25432:5432"]
+    volumes: ["./database-tests/postgresql.sql:/docker-entrypoint-initdb.d/fixture.sql:ro"]
+  pg16:
+    image: postgres:16-alpine
+    environment: *pg
+    ports: ["127.0.0.1:25433:5432"]
+    volumes: ["./database-tests/postgresql.sql:/docker-entrypoint-initdb.d/fixture.sql:ro"]
+  mysql80:
+    image: mysql:8.0
+    profiles: [mysql]
+    environment: &mysql
+      MYSQL_ROOT_PASSWORD: fixture_owner_only
+      MYSQL_DATABASE: fixture
+      MYSQL_USER: fixture_reader
+      MYSQL_PASSWORD: fixture_reader_only
+    ports: ["127.0.0.1:23306:3306"]
+    volumes: ["./database-tests/mysql.sql:/docker-entrypoint-initdb.d/fixture.sql:ro"]
+  mysql84:
+    image: mysql:8.4
+    profiles: [mysql]
+    environment: *mysql
+    ports: ["127.0.0.1:23307:3306"]
+    volumes: ["./database-tests/mysql.sql:/docker-entrypoint-initdb.d/fixture.sql:ro"]
+  mysql57:
+    image: mysql:5.7
+    profiles: [legacy]
+    environment: *mysql
+    ports: ["127.0.0.1:23305:3306"]
+    volumes: ["./database-tests/mysql.sql:/docker-entrypoint-initdb.d/fixture.sql:ro"]

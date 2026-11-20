@@ -1,0 +1,11 @@
+# MVP override; the base Compose now contains only the five runtime services
+# and three one-shot migration jobs.
+services:
+  api:
+    environment:
+      SEMORA_DEBUG_PAYLOADS: ${SEMORA_DEBUG_PAYLOADS:-false}
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"

@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+FROM maven:3.9.9-eclipse-temurin-17 AS jdbc
+WORKDIR /build
+COPY services/executor/jdbc /build
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package
+
+FROM python:3.12-slim AS dependencies
+ARG SERVICE=api
+WORKDIR /app
+COPY services/${SERVICE}/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+FROM dependencies AS compiler
+ARG SERVICE=api
+ENV SEMORA_BUILD_SERVICE=$SERVICE
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+COPY deploy/compiled/requirements-build.txt /tmp/requirements-build.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-build.txt
+COPY services/${SERVICE}/app /source/app
+COPY services/agent/semora_agent /source/semora_agent
+COPY packages/contracts/python/semora_contracts /source/semora_contracts
+COPY packages/telemetry/python/semora_telemetry /source/semora_telemetry
+COPY deploy/compiled/compile_modules.py /build/compile_modules.py
+COPY deploy/compiled/verify_payload.py /build/verify_payload.py
+RUN python /build/compile_modules.py && python /build/verify_payload.py /compiled
+
+FROM dependencies AS runtime
+ARG SERVICE=api
+ENV PYTHONPATH=/app PYTHONDONTWRITEBYTECODE=1 SEMORA_SERVICE=$SERVICE RELATIONSHIP_CHECKPOINT_DIR=/var/lib/semora/relationship-checkpoints
+COPY --from=compiler /compiled/ /app/
+COPY --from=jdbc /build/target/jdbc-worker-1.0.0.jar /opt/semora-jdbc/
+COPY --from=jdbc /build/target/lib /opt/semora-jdbc/lib
+RUN if [ "$SERVICE" = "executor" ]; then apt-get update && apt-get install -y --no-install-recommends default-jre-headless && rm -rf /var/lib/apt/lists/*; fi
+COPY THIRD_PARTY_NOTICES.md /usr/share/doc/semora/THIRD_PARTY_NOTICES.md
+COPY LICENSE /usr/share/doc/semora/LICENSE
+COPY services/api/app/vendor/WREN-LICENSE-APACHE-2.0 /usr/share/doc/semora/APACHE-2.0.txt
+COPY deploy/compiled/verify_payload.py /usr/local/bin/semora-verify-payload
+RUN mkdir -p /data/config && chown 10001:10001 /data/config \
+    && addgroup --system --gid 10001 semora \
+    && adduser --system --uid 10001 --ingroup semora --no-create-home semora \
+    && mkdir -p /var/lib/semora/relationship-checkpoints \
+    && chown -R semora:semora /var/lib/semora \
+    && python /usr/local/bin/semora-verify-payload /app
+USER 10001:10001
+CMD ["python", "-c", "import os, uvicorn; uvicorn.run('app.main:app', host='0.0.0.0', port=8002 if os.environ['SEMORA_SERVICE'] == 'executor' else 8000)"]

@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+pythonpath = ["services/api", "services/agent", "packages/contracts/python", "packages/telemetry/python"]
+testpaths = ["services/api/tests"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+

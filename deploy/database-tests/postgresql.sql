@@ -1,0 +1,17 @@
+CREATE USER fixture_reader PASSWORD 'fixture_reader_only';
+ALTER ROLE fixture_reader SET default_transaction_read_only = on;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+CREATE SCHEMA a;
+CREATE SCHEMA b;
+CREATE TABLE a.customer (tenant_id integer NOT NULL, customer_id bigint NOT NULL, name text, PRIMARY KEY(tenant_id,customer_id));
+COMMENT ON TABLE a.customer IS '合成客户，不含业务数据';
+COMMENT ON COLUMN a.customer.name IS '客户显示名';
+CREATE TABLE b.loan (id bigint PRIMARY KEY,tenant_id integer NOT NULL, customer_id bigint NOT NULL, balance numeric(30,8),ts timestamptz, UNIQUE(tenant_id,id),FOREIGN KEY(tenant_id,customer_id) REFERENCES a.customer(tenant_id,customer_id));
+CREATE TABLE a.loan (id bigint PRIMARY KEY);
+CREATE VIEW b.loan_view AS SELECT id,balance FROM b.loan;
+CREATE TYPE a.unknown_type AS ENUM ('a','b');
+CREATE TABLE a.unsupported (id integer, value a.unknown_type);
+INSERT INTO a.customer VALUES (1,10,'合成甲'),(1,20,NULL);
+INSERT INTO b.loan VALUES (101,1,10,12345678901234567890.12345678,'2025-01-02T03:04:05+08'),(102,1,20,NULL,NULL);
+GRANT USAGE ON SCHEMA a,b TO fixture_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA a,b TO fixture_reader;
