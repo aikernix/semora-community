@@ -142,6 +142,8 @@ Browser tests use the local console by default. Set `SEMORA_WEB_URL` to select a
 
 ## License
 
-Semora is distributed under the [MIT License](LICENSE). See [Third-party notices](THIRD_PARTY_NOTICES.md) for dependency and bundled driver licenses.
+Semora’s project code is available under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may study, run locally, and modify it for purposes permitted by the license. Commercial use outside those permissions requires separate authorization from the rights holder.
 
-See the [contribution terms](CONTRIBUTING.md) for licensing and attribution of pull requests and the [name and logo policy](TRADEMARKS.md) for use of the Semora identity.
+Pull requests are welcome under the [Contributor License Agreement](CLA.md). See the [contribution guide](CONTRIBUTING.md) for how to accept it.
+
+Versions previously released under the [MIT License](https://github.com/aikernix/semora-community/blob/73e877603ca1eb6cb7cfda5403ccb770ceff4eb4/LICENSE) remain available under their original terms. See the [copyright notice](NOTICE), [third-party notices](THIRD_PARTY_NOTICES.md), and [name and logo policy](TRADEMARKS.md) for details.

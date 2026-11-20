@@ -142,6 +142,8 @@ npm run test:e2e
 
 ## 许可证
 
-Semora 采用 [MIT 许可证](LICENSE)。依赖库及内置驱动的许可见 [第三方声明](THIRD_PARTY_NOTICES.md)。
+Semora 项目源码按 [PolyForm Noncommercial License 1.0.0](LICENSE) 提供。你可以在许可范围内学习、本地运行和修改。超出该许可范围的商业使用须另行取得权利人授权。
 
-PR 的授权和署名规则见 [贡献指南](CONTRIBUTING.md)。Semora 名称和标识的使用说明见 [品牌声明](TRADEMARKS.md)。
+欢迎提交 PR。请阅读[贡献者许可协议](CLA.md)，并按[贡献指南](CONTRIBUTING.md)在 PR 中确认同意。
+
+此前按 [MIT 许可证](https://github.com/aikernix/semora-community/blob/73e877603ca1eb6cb7cfda5403ccb770ceff4eb4/LICENSE) 发布的版本仍适用原许可。另见[版权声明](NOTICE)、[第三方声明](THIRD_PARTY_NOTICES.md)和[品牌声明](TRADEMARKS.md)。

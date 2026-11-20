@@ -1,21 +1,23 @@
 # Contributing to Semora
 
-Contributions are welcome through GitHub issues and pull requests. Describe the problem, the proposed change, and how you verified it. Use synthetic data in examples, tests, and logs.
+[简体中文](#简体中文)
 
-## Contribution terms
+1. Fork the repository and make your change. In your pull request, describe what changed and how you verified it.
+2. Read the [Contributor License Agreement](CLA.md). Each contributor must record their own acceptance in the PR description or a comment before the PR can be merged:
 
-By submitting a contribution for inclusion in this repository, you agree to license it under the repository's [MIT License](LICENSE), unless you and the maintainers have agreed to other terms in writing. This allows contributions to be incorporated into public or private Semora versions, including commercial distributions, subject to the license terms.
+   > I agree to the Semora Contributor License Agreement (CLA.md) for my contribution to this pull request.
 
-Submit material you created or are authorized to contribute. Identify third-party material and retain its applicable attribution and license notices. Keep credentials, customer data, internal configurations, and other confidential material out of issues and pull requests.
+3. Submit only material you have the right to contribute. Identify third-party material and preserve its attribution and license notices. Keep credentials, customer data, internal configurations, and other confidential material out of issues and pull requests.
 
-Use `git commit -s` to sign off your commits under the [Developer Certificate of Origin 1.1](https://developercertificate.org/). Keep the contributor attribution when carrying forward or adapting an existing contribution.
+The CLA lets maintainers include your contribution in public, private, and commercial Semora versions. You retain your copyright. See the [project license](LICENSE) for the terms that apply to use of the public repository.
 
-## 中文说明
+## 简体中文
 
-欢迎通过 GitHub Issue 或 Pull Request 参与。请说明问题、改动和验证方法，示例、测试和日志使用合成数据。
+1. Fork 仓库并提交改动。在 PR 中说明改了什么，以及如何验证。
+2. 阅读[贡献者许可协议](CLA.md)。合并前，每位贡献者须在 PR 描述或评论中确认同意，可使用以下文字：
 
-提交供本仓库收录的贡献时，除非你与维护者另有书面约定，该贡献按仓库的 [MIT 许可证](LICENSE) 授权。在遵守许可条款的前提下，贡献可以合入公开或私有版本，也可以随商业版本分发。
+   > 我同意《Semora 贡献者许可协议》（CLA.md），并将该协议适用于我在此 PR 中提交的贡献。
 
-请提交你有权提供的内容。引用第三方材料时注明来源，并保留适用的署名与许可声明。请勿在 Issue 或 PR 中提交凭据、客户数据、内部配置或其他保密材料。
+3. 只提交你有权贡献的内容。标明第三方材料并保留署名和许可声明。请勿在 Issue 或 PR 中提交凭据、客户数据、内部配置或其他保密材料。
 
-请使用 `git commit -s` 按 [Developer Certificate of Origin 1.1](https://developercertificate.org/) 为提交签署声明。沿用或改编已有贡献时，请保留贡献者署名。
+你保留贡献的著作权，并通过 CLA 授权维护者将贡献用于 Semora 的公开版、私有版和商业版。使用公开仓代码适用[项目许可证](LICENSE)。
